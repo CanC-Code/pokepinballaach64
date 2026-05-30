@@ -704,7 +704,7 @@ UpdateBottomText: ; 0x33e3
 	ldh a, [hGameBoyColorFlag]
 	and a
 	jr nz, .gameboyColor
-	ld a, Bank(StageRedFieldTopStatusBarSymbolsGfx_GameBoy)
+	ld a, BANK(StageRedFieldTopStatusBarSymbolsGfx_GameBoy)
 	ld hl, $30 + StageRedFieldTopStatusBarSymbolsGfx_GameBoy
 	ld de, $8830
 	ld bc, $0040
@@ -712,7 +712,7 @@ UpdateBottomText: ; 0x33e3
 	ret
 
 .gameboyColor
-	ld a, Bank(StageRedFieldTopStatusBarSymbolsGfx_GameBoyColor)
+	ld a, BANK(StageRedFieldTopStatusBarSymbolsGfx_GameBoyColor)
 	ld hl, $30 + StageRedFieldTopStatusBarSymbolsGfx_GameBoyColor
 	ld de, $8830
 	ld bc, $0040

@@ -27,14 +27,9 @@ jobs:
         cmake --build build
         sudo cmake --install build
         
-    - name: Verify RGBDS Installation
-      run: rgbasm --version
-
     - name: Assemble ROM & Generate Symbol Map
       run: |
-        # Explicitly build the pokepinball.gbc target to output the .sym file.
-        # This explicitly drops the 'compare' target to prevent the pipeline from failing 
-        # if the SHA1 hash does not perfectly match during future native port modifications.
+        # Explicitly build the pokepinball.gbc target
         make pokepinball.gbc
 
     - name: Setup Python Runtime

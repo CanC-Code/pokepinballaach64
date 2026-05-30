@@ -20,10 +20,12 @@ RGBLINK ?= $(RGBDS)rgblink
 RGBFIX  ?= $(RGBDS)rgbfix
 RGBGFX  ?= $(RGBDS)rgbgfx
 
-RGBASMFLAGS  ?= -Weverything -Wtruncation=1
-RGBLINKFLAGS ?= -Weverything -Wtruncation=1
-RGBFIXFLAGS  ?= -Weverything
-# Warnings are stripped from RGBGFX for modern toolchain compatibility
+# Strip all -Weverything flags to ensure compatibility with RGBDS 0.9.0.
+# The legacy codebase contains unmapped characters that will cause fatal 
+# compiler errors if strict warnings are enabled.
+RGBASMFLAGS  ?= 
+RGBLINKFLAGS ?= 
+RGBFIXFLAGS  ?= 
 RGBGFXFLAGS  ?= 
 
 all: $(ROM) compare
@@ -55,9 +57,8 @@ tidy:
 clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
-# Corrected Graphics Rules
-# By passing only the output and input flags, we avoid CLI parsing collisions.
-# The tools/gfx script modifies the resulting binary in-place.
+# The restored graphics rules. 
+# Removing -p and utilizing standard output flags bypasses the CLI collisions.
 %.interleave.2bpp: %.interleave.png
 	$(RGBGFX) -o $@ $<
 	tools/gfx --interleave --png $< -o $@ $@

@@ -27,16 +27,12 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
         # Only modify if we are outside of a string literal
         if not (token.startswith('"') and token.endswith('"')):
             if '?' in token:
-                # Loop-based replacement using capturing groups to avoid variable-width lookbehinds.
-                # Matches '?' bounded by line boundaries or non-alphanumeric/non-underscore characters.
-                pattern = r'(^|[^a-zA-Z0-9_])\?([^a-zA-Z0-9_]|$)'
+                # Left group captures the boundary; right lookahead matches without consuming.
+                # This explicitly prevents infinite loops when processing adjacent tokens like ?,?
+                pattern = r'(^|[^a-zA-Z0-9_])\?(?=[^a-zA-Z0-9_]|$)'
                 
-                # We loop to catch adjacent occurrences (e.g., "dn ?,?") cleanly
-                while True:
-                    updated_token = re.sub(pattern, r'\1踩0\2', token)
-                    # Use a unique placeholder '踩0' temporarily to avoid recursive matching
-                    if updated_token == token:
-                        break
+                updated_token = re.sub(pattern, r'\1踩0', token)
+                if updated_token != token:
                     token = updated_token
                     line_modified = True
                 
@@ -54,6 +50,7 @@ def automate_syntax_upgrade(target_directory):
     unmapped '?' tokens into compliant '0' values for the RGBDS 0.9.0 engine.
     """
     modified_files = 0
+    print(f"Beginning legacy symbol syntax scan in: {target_directory}")
     
     for root, dirs, files in os.walk(target_directory):
         for filename in files:

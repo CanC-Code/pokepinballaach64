@@ -23,6 +23,7 @@ RGBGFX  ?= $(RGBDS)rgbgfx
 RGBASMFLAGS  ?= -Weverything -Wtruncation=1
 RGBLINKFLAGS ?= -Weverything -Wtruncation=1
 RGBFIXFLAGS  ?= -Weverything
+# Warnings are stripped from RGBGFX for modern toolchain compatibility
 RGBGFXFLAGS  ?= 
 
 all: $(ROM) compare
@@ -54,19 +55,18 @@ tidy:
 clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
-# Fixed Interleave Rule: 
-# We output to a flat temporary filename to ensure rgbgfx argument parsing 
-# does not collide with the source path.
+# Corrected Graphics Rules
+# By passing only the output and input flags, we avoid CLI parsing collisions.
+# The tools/gfx script modifies the resulting binary in-place.
 %.interleave.2bpp: %.interleave.png
-	$(RGBGFX) -p -o temp_interleave.tmp $<
-	tools/gfx --interleave --png $< -o temp_interleave.tmp
-	mv temp_interleave.tmp $@
+	$(RGBGFX) -o $@ $<
+	tools/gfx --interleave --png $< -o $@ $@
 
 %.2bpp: %.png
-	$(RGBGFX) -p -o $@ $<
+	$(RGBGFX) -o $@ $<
 
 %.1bpp: %.png
-	$(RGBGFX) -p -d1 -o $@ $<
+	$(RGBGFX) -d1 -o $@ $<
 
 %.pcm: %.wav
 	tools/pcm -o $@ $<

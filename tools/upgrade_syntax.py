@@ -26,7 +26,6 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
         if not (token.startswith('"') and token.endswith('"')):
             if '?' in token:
                 # Left group captures the boundary; right lookahead matches without consuming.
-                # This explicitly prevents infinite loops when processing adjacent tokens like ?,?
                 pattern = r'(^|[^a-zA-Z0-9_])\?(?=[^a-zA-Z0-9_]|$)'
                 
                 updated_token = re.sub(pattern, r'\1踩0', token)

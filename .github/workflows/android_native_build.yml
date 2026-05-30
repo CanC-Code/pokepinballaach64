@@ -45,11 +45,113 @@ jobs:
 
     - name: Assemble ROM Core
       run: |
-        # Fix rigid RGBDS 0.5 linker bank constraints in contents.link for RGBDS 0.9.0 compatibility
-        if [ -f "contents/contents.link" ]; then
-          sed -i 's/WRAM0/WRAM0/g' contents/contents.link
-          sed -i 's/SECTION "WRAM Home"/WRAM0/g' contents/contents.link
-        fi
+        # Dynamically emit a clean, modern contents.link file that satisfies 
+        # RGBDS 0.9.0 strict linker layout engine specifications.
+        mkdir -p contents
+        cat << 'EOF' > contents/contents.link
+        ROM0
+            SECTION "ROM Home"
+        ROMX 1
+            SECTION "ROM Bank 1"
+        ROMX 2
+            SECTION "ROM Bank 2"
+        ROMX 3
+            SECTION "ROM Bank 3"
+        ROMX 4
+            SECTION "ROM Bank 4"
+        ROMX 5
+            SECTION "ROM Bank 5"
+        ROMX 6
+            SECTION "ROM Bank 6"
+        ROMX 7
+            SECTION "ROM Bank 7"
+        ROMX 8
+            SECTION "ROM Bank 8"
+        ROMX 9
+            SECTION "ROM Bank 9"
+        ROMX 10
+            SECTION "ROM Bank 10"
+        ROMX 11
+            SECTION "ROM Bank 11"
+        ROMX 12
+            SECTION "ROM Bank 12"
+        ROMX 13
+            SECTION "ROM Bank 13"
+        ROMX 14
+            SECTION "ROM Bank 14"
+        ROMX 15
+            SECTION "ROM Bank 15"
+        ROMX 16
+            SECTION "ROM Bank 16"
+        ROMX 17
+            SECTION "ROM Bank 17"
+        ROMX 18
+            SECTION "ROM Bank 18"
+        ROMX 19
+            SECTION "ROM Bank 19"
+        ROMX 20
+            SECTION "ROM Bank 20"
+        ROMX 21
+            SECTION "ROM Bank 21"
+        ROMX 22
+            SECTION "ROM Bank 22"
+        ROMX 23
+            SECTION "ROM Bank 23"
+        ROMX 24
+            SECTION "ROM Bank 24"
+        ROMX 25
+            SECTION "ROM Bank 25"
+        ROMX 26
+            SECTION "ROM Bank 26"
+        ROMX 27
+            SECTION "ROM Bank 27"
+        ROMX 28
+            SECTION "ROM Bank 28"
+        ROMX 29
+            SECTION "ROM Bank 29"
+        ROMX 30
+            SECTION "ROM Bank 30"
+        ROMX 31
+            SECTION "ROM Bank 31"
+        ROMX 32
+            SECTION "ROM Bank 32"
+        ROMX 33
+            SECTION "ROM Bank 33"
+        ROMX 34
+            SECTION "ROM Bank 34"
+        ROMX 35
+            SECTION "ROM Bank 35"
+        ROMX 36
+            SECTION "ROM Bank 36"
+        ROMX 37
+            SECTION "ROM Bank 37"
+        ROMX 38
+            SECTION "ROM Bank 38"
+        ROMX 39
+            SECTION "ROM Bank 39"
+        WRAM0
+            SECTION "WRAM Home"
+        WRAMX 1
+            SECTION "WRAM Bank 1"
+        WRAMX 2
+            SECTION "WRAM Bank 2"
+        WRAMX 3
+            SECTION "WRAM Bank 3"
+        WRAMX 4
+            SECTION "WRAM Bank 4"
+        WRAMX 5
+            SECTION "WRAM Bank 5"
+        WRAMX 6
+            SECTION "WRAM Bank 6"
+        WRAMX 7
+            SECTION "Audio RAM"
+        HRAM
+            SECTION "HRAM"
+        VRAM
+            SECTION "VRAM"
+        SRAM
+            SECTION "SRAM"
+        EOF
         
         make pokepinball.gbc
 

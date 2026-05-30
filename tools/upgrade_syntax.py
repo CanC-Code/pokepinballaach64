@@ -27,12 +27,22 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
         # Only modify if we are outside of a string literal
         if not (token.startswith('"') and token.endswith('"')):
             if '?' in token:
-                # Replace unquoted standalone '?' symbols with '0'
-                # Uses lookaround to make sure it handles commas, spaces, and brackets cleanly
-                updated_token = re.sub(r'(?<=^|[\s,()\[\]\-+*/])\?(?=$|[\s,()\[\]\-+*/])', '0', token)
-                if updated_token != token:
-                    string_tokens[i] = updated_token
+                # Loop-based replacement using capturing groups to avoid variable-width lookbehinds.
+                # Matches '?' bounded by line boundaries or non-alphanumeric/non-underscore characters.
+                pattern = r'(^|[^a-zA-Z0-9_])\?([^a-zA-Z0-9_]|$)'
+                
+                # We loop to catch adjacent occurrences (e.g., "dn ?,?") cleanly
+                while True:
+                    updated_token = re.sub(pattern, r'\1踩0\2', token)
+                    # Use a unique placeholder '踩0' temporarily to avoid recursive matching
+                    if updated_token == token:
+                        break
+                    token = updated_token
                     line_modified = True
+                
+                # Restore the true '0' value from our temporary placeholder
+                if line_modified:
+                    string_tokens[i] = token.replace('踩0', '0')
 
     # Re-stitch the line components back together safely
     new_line = "".join(string_tokens) + comment_part

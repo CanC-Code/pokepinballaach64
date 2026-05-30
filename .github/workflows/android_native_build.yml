@@ -27,15 +27,18 @@ jobs:
         cmake --build build
         sudo cmake --install build
         
-    - name: Assemble ROM & Generate Symbol Map
-      run: |
-        # Explicitly build the pokepinball.gbc target
-        make pokepinball.gbc
-
     - name: Setup Python Runtime
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+
+    - name: Assemble ROM & Generate Symbol Map
+      run: |
+        # 1. Automate the upgrade of legacy RGBDS 0.5 macro syntax
+        python3 tools/upgrade_syntax.py .
+        
+        # 2. Explicitly build the pokepinball.gbc target
+        make pokepinball.gbc
 
     - name: Generate C++ Asset Dictionary
       run: |

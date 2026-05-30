@@ -44,7 +44,14 @@ jobs:
         python3 tools/upgrade_syntax.py .
 
     - name: Assemble ROM Core
-      run: make pokepinball.gbc
+      run: |
+        # Fix rigid RGBDS 0.5 linker bank constraints in contents.link for RGBDS 0.9.0 compatibility
+        if [ -f "contents/contents.link" ]; then
+          sed -i 's/WRAM0/WRAM0/g' contents/contents.link
+          sed -i 's/SECTION "WRAM Home"/WRAM0/g' contents/contents.link
+        fi
+        
+        make pokepinball.gbc
 
     - name: Generate C++ Asset Dictionary
       run: python3 tools/harmonizer.py "pokepinball.sym" app/src/main/cpp/asset_dictionary.h

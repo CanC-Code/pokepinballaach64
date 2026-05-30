@@ -3,15 +3,48 @@ import os
 import re
 import sys
 
+def upgrade_line_syntax(line: str) -> tuple[str, bool]:
+    """
+    Parses an assembly line, strictly separating active code, string literals, 
+    and comments to safely clear legacy '?' characters without corrupting text assets.
+    """
+    # If the line is empty or completely a comment, skip it
+    if not line.strip() or line.strip().startswith(';'):
+        return line, False
+
+    # Isolate trailing comments to preserve text inside notes
+    comment_parts = line.split(';', 1)
+    code_part = comment_parts[0]
+    comment_part = f";{comment_parts[1]}" if len(comment_parts) > 1 else ""
+
+    # Tokenize strings to protect text variables like: db "Where is Pikachu?"
+    # Split by double quotes, keeping track of inside vs outside strings
+    string_tokens = re.split(r'(".*?")', code_part)
+    
+    line_modified = False
+    for i in range(len(string_tokens)):
+        token = string_tokens[i]
+        # Only modify if we are outside of a string literal
+        if not (token.startswith('"') and token.endswith('"')):
+            if '?' in token:
+                # Replace unquoted standalone '?' symbols with '0'
+                # Uses lookaround to make sure it handles commas, spaces, and brackets cleanly
+                updated_token = re.sub(r'(?<=^|[\s,()\[\]\-+*/])\?(?=$|[\s,()\[\]\-+*/])', '0', token)
+                if updated_token != token:
+                    string_tokens[i] = updated_token
+                    line_modified = True
+
+    # Re-stitch the line components back together safely
+    new_line = "".join(string_tokens) + comment_part
+    return new_line, line_modified
+
 def automate_syntax_upgrade(target_directory):
     """
-    Scans all .asm files in the target directory and replaces legacy '?' 
-    syntax with '0' inside specific macro invocations to comply with RGBDS 0.9.0.
+    Recursively scans all .asm files in the target folder to convert legacy 
+    unmapped '?' tokens into compliant '0' values for the RGBDS 0.9.0 engine.
     """
-    # Matches lines that begin with whitespace followed by targeted data macros
-    macro_pattern = re.compile(r'^(\s*)(dn|bigBCD6)\s+(.*)$')
-    
     modified_files = 0
+    
     for root, dirs, files in os.walk(target_directory):
         for filename in files:
             if filename.endswith(".asm"):
@@ -21,37 +54,28 @@ def automate_syntax_upgrade(target_directory):
                     with open(filepath, 'r', encoding='utf-8') as f:
                         lines = f.readlines()
                 except UnicodeDecodeError:
-                    continue # Skip any invalid encoded files
+                    # Fallback context safety layer for legacy character maps
+                    try:
+                        with open(filepath, 'r', encoding='shift_jis') as f:
+                            lines = f.readlines()
+                    except Exception:
+                        continue
                 
                 file_changed = False
                 for i, line in enumerate(lines):
-                    match = macro_pattern.match(line)
-                    if match:
-                        indent, macro_name, args = match.groups()
-                        
-                        # Only execute if the legacy '?' placeholder is present
-                        if '?' in args:
-                            # Isolate comments to prevent replacing '?' inside text remarks
-                            if ';' in args:
-                                code_part, comment_part = args.split(';', 1)
-                                new_code = code_part.replace('?', '0')
-                                new_args = f"{new_code};{comment_part}"
-                            else:
-                                new_args = args.replace('?', '0')
-                                
-                            # Reconstruct and apply the corrected line
-                            lines[i] = f"{indent}{macro_name} {new_args}\n"
-                            file_changed = True
+                    updated_line, line_changed = upgrade_line_syntax(line)
+                    if line_changed:
+                        lines[i] = updated_line
+                        file_changed = True
                 
                 if file_changed:
                     with open(filepath, 'w', encoding='utf-8') as f:
                         f.writelines(lines)
-                    print(f"[+] Upgraded legacy syntax in: {filepath}")
+                    print(f"[+] Cleaned legacy syntax tokens in: {filepath}")
                     modified_files += 1
 
     print(f"Syntax upgrade complete. Modified {modified_files} source files.")
 
 if __name__ == "__main__":
-    # Target the provided directory, or default to current working directory
     directory = sys.argv[1] if len(sys.argv) > 1 else "."
     automate_syntax_upgrade(directory)

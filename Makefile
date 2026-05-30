@@ -54,10 +54,6 @@ tidy:
 clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
-# Updated Graphics Rules:
-# Separating the output file flag (-o) for rgbgfx clearly from the 
-# arguments passed to the custom tools/gfx helper.
-
 %.interleave.2bpp: %.interleave.png
 	$(RGBGFX) -p -o $@ $<
 	tools/gfx --interleave --png $< -o $@

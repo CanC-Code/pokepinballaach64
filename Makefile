@@ -20,9 +20,6 @@ RGBLINK ?= $(RGBDS)rgblink
 RGBFIX  ?= $(RGBDS)rgbfix
 RGBGFX  ?= $(RGBDS)rgbgfx
 
-# Strip all -Weverything flags to ensure compatibility with RGBDS 0.9.0.
-# The legacy codebase contains unmapped characters that will cause fatal 
-# compiler errors if strict warnings are enabled.
 RGBASMFLAGS  ?= 
 RGBLINKFLAGS ?= 
 RGBFIXFLAGS  ?= 
@@ -57,8 +54,8 @@ tidy:
 clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
-# The restored graphics rules. 
-# Removing -p and utilizing standard output flags bypasses the CLI collisions.
+# Clean graphics rules optimized for RGBDS 0.9.0 positional parsing.
+# The tools/gfx binary processes interleaving updates post-export smoothly.
 %.interleave.2bpp: %.interleave.png
 	$(RGBGFX) -o $@ $<
 	tools/gfx --interleave --png $< -o $@ $@
@@ -67,7 +64,7 @@ clean: tidy
 	$(RGBGFX) -o $@ $<
 
 %.1bpp: %.png
-	$(RGBGFX) -d1 -o $@ $<
+	$(RGBGFX) -d 1 -o $@ $<
 
 %.pcm: %.wav
 	tools/pcm -o $@ $<

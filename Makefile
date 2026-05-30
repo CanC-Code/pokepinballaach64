@@ -23,7 +23,6 @@ RGBGFX  ?= $(RGBDS)rgbgfx
 RGBASMFLAGS  ?= -Weverything -Wtruncation=1
 RGBLINKFLAGS ?= -Weverything -Wtruncation=1
 RGBFIXFLAGS  ?= -Weverything
-# Stripped warning flags for modern rgbgfx compatibility
 RGBGFXFLAGS  ?= 
 
 all: $(ROM) compare
@@ -56,14 +55,14 @@ clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
 %.interleave.2bpp: %.interleave.png
-	$(RGBGFX) -c dmg $(RGBGFXFLAGS) -o $@ $<
+	$(RGBGFX) -p -o $@ $<
 	tools/gfx --interleave --png $< -o $@ $@
 
 %.2bpp: %.png
-	$(RGBGFX) -c dmg $(RGBGFXFLAGS) -o $@ $<
+	$(RGBGFX) -p -o $@ $<
 
 %.1bpp: %.png
-	$(RGBGFX) -c dmg $(RGBGFXFLAGS) -d1 -o $@ $<
+	$(RGBGFX) -p -d1 -o $@ $<
 
 %.pcm: %.wav
 	tools/pcm -o $@ $<

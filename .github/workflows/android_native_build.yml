@@ -34,17 +34,13 @@ jobs:
 
     - name: Build Host Tools
       run: |
-        # Force remove stale binary outputs and dependency definitions
         make clean || true
         make tools
 
     - name: Upgrade Legacy Codebase Syntax
       run: |
-        # Explicitly destroy Python byte-code cache folders to prevent runner regressions
         find . -type d -name "__pycache__" -exec rm -rf {} +
         rm -f tools/*.pyc
-        
-        # Execute the fresh text script directly
         python3 tools/upgrade_syntax.py .
 
     - name: Assemble ROM Core

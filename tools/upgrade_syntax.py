@@ -26,15 +26,17 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
         if not (token.startswith('"') and token.endswith('"')):
             if '?' in token:
                 # Left group captures the boundary; right lookahead matches without consuming.
+                # Bypasses Python variable lookbehind errors and prevents infinite loops on ?,?
                 pattern = r'(^|[^a-zA-Z0-9_])\?(?=[^a-zA-Z0-9_]|$)'
                 
-                updated_token = re.sub(pattern, r'\1踩0', token)
+                # Uses an ASCII-safe placeholder token string to avoid terminal encoder issues
+                updated_token = re.sub(pattern, r'\1__TEMP_ZERO_PLACEHOLDER__', token)
                 if updated_token != token:
                     token = updated_token
                     line_modified = True
                 
                 if line_modified:
-                    string_tokens[i] = token.replace('踩0', '0')
+                    string_tokens[i] = token.replace('__TEMP_ZERO_PLACEHOLDER__', '0')
 
     new_line = "".join(string_tokens) + comment_part
     return new_line, line_modified

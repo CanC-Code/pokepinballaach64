@@ -45,11 +45,26 @@ def automate_syntax_upgrade(target_directory):
     """
     Recursively scans all .asm files in the target folder to convert legacy 
     unmapped '?' tokens into compliant '0' values for the RGBDS 0.9.0 engine.
+    Excludes the vendored ./rgbds/ subtree to avoid corrupting tool test files.
     """
     modified_files = 0
     print(f"Beginning legacy symbol syntax scan in: {target_directory}")
+
+    # Resolve the rgbds vendor directory as an absolute path so the
+    # os.walk skip works regardless of how target_directory is specified.
+    abs_target = os.path.abspath(target_directory)
+    rgbds_vendor_dir = os.path.join(abs_target, "rgbds")
     
     for root, dirs, files in os.walk(target_directory):
+        # Skip the vendored rgbds source tree in-place so os.walk never descends into it.
+        abs_root = os.path.abspath(root)
+        if abs_root == rgbds_vendor_dir or abs_root.startswith(rgbds_vendor_dir + os.sep):
+            dirs.clear()
+            continue
+        # Also prune it from dirs to prevent descent when we are at the parent level.
+        if "rgbds" in dirs:
+            dirs.remove("rgbds")
+
         for filename in files:
             if filename.endswith(".asm"):
                 filepath = os.path.join(root, filename)

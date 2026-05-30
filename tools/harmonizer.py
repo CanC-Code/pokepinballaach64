@@ -68,8 +68,8 @@ def calculate_sizes_and_write(symbols, out_path):
         f.write(f"constexpr uint32_t ROM_ASSETS_COUNT = sizeof(ROM_ASSETS) / sizeof(ROM_ASSETS[0]);\n")
 
 if __name__ == '__main__':
-    # Default paths targeting standard build outputs and Android CPP directory
-    sym_file = "Pokemon Pinball (U) [C][!].sym"
+    # Default paths targeting standard Makefile output and Android CPP directory
+    sym_file = "pokepinball.sym"
     out_file = "app/src/main/cpp/asset_dictionary.h"
     
     if len(sys.argv) > 2:

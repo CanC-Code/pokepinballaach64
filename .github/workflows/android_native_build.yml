@@ -34,11 +34,14 @@ jobs:
 
     - name: Assemble ROM & Generate Symbol Map
       run: |
-        # 1. Automate the upgrade of legacy RGBDS 0.5 macro syntax
+        # 1. First build the required host preprocessing utilities (scan_includes, gfx, pcm)
+        # This fixes target bypass issues caused by explicitly calling file matching goals.
+        make tools
+        
+        # 2. Automate the upgrade of legacy RGBDS 0.5 macro syntax
         python3 tools/upgrade_syntax.py .
         
-        # 2. Build the target ROM directly. This avoids the 'compare' target rule
-        # so that byte-matching warnings do not prevent the generation of pokepinball.sym.
+        # 3. Build the target ROM directly to emit pokepinball.sym
         make pokepinball.gbc
 
     - name: Generate C++ Asset Dictionary

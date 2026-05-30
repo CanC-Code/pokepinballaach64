@@ -32,21 +32,17 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Assemble ROM & Generate Symbol Map
-      run: |
-        # 1. First build the required host preprocessing utilities (scan_includes, gfx, pcm)
-        # This fixes target bypass issues caused by explicitly calling file matching goals.
-        make tools
-        
-        # 2. Automate the upgrade of legacy RGBDS 0.5 macro syntax
-        python3 tools/upgrade_syntax.py .
-        
-        # 3. Build the target ROM directly to emit pokepinball.sym
-        make pokepinball.gbc
+    - name: Build Host Tools
+      run: make tools
+
+    - name: Upgrade Legacy Codebase Syntax
+      run: python3 tools/upgrade_syntax.py .
+
+    - name: Assemble ROM Core
+      run: make pokepinball.gbc
 
     - name: Generate C++ Asset Dictionary
-      run: |
-        python3 tools/harmonizer.py "pokepinball.sym" app/src/main/cpp/asset_dictionary.h
+      run: python3 tools/harmonizer.py "pokepinball.sym" app/src/main/cpp/asset_dictionary.h
 
     - name: Setup Java JDK for Gradle
       uses: actions/setup-java@v4

@@ -60,7 +60,7 @@ LoadPokedexScreen: ; 0x2800e
         call DrawSummaryWindowMonImage
         call CountNumSeenOwnedMons
         call SetAllPalettesWhite
-        ld a, Bank(Music_Pokedex)
+        ld a, BANK(Music_Pokedex)
         call SetSongBank
         ld de, MUSIC_POKEDEX
         call PlaySong
@@ -424,7 +424,7 @@ Func_282e9: ; 0x282e9
         ld b, $0
         ld hl, MonAnimatedSpriteTypes
         add hl, bc
-        ld a, Bank(MonAnimatedSpriteTypes)
+        ld a, BANK(MonAnimatedSpriteTypes)
         call ReadByteFromBank
         ld c, a
         ldh a, [hFrameCounter]
@@ -1198,7 +1198,7 @@ AnimateMonSpriteIfStartIsPressed: ; 0x287e7
         ld b, $0
         ld hl, MonAnimatedSpriteTypes
         add hl, bc
-        ld a, Bank(MonAnimatedSpriteTypes)
+        ld a, BANK(MonAnimatedSpriteTypes)
         call ReadByteFromBank
         bit 7, a
         ret nz
@@ -1683,15 +1683,15 @@ DrawSummaryWindowMonImage: ; 0x28add
         push bc
         ld hl, MonBillboardPicPointers
         add hl, bc
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         inc hl
         ld c, a
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         inc hl
         ld b, a
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         ld h, b
         ld l, c
@@ -1706,30 +1706,30 @@ DrawSummaryWindowMonImage: ; 0x28add
         push bc
         ld hl, MonBillboardPaletteMapPointers
         add hl, bc
-        ld a, Bank(MonBillboardPaletteMapPointers)
+        ld a, BANK(MonBillboardPaletteMapPointers)
         call ReadByteFromBank
         inc hl
         ld e, a
-        ld a, Bank(MonBillboardPaletteMapPointers)
+        ld a, BANK(MonBillboardPaletteMapPointers)
         call ReadByteFromBank
         inc hl
         ld d, a
-        ld a, Bank(MonBillboardPaletteMapPointers)
+        ld a, BANK(MonBillboardPaletteMapPointers)
         call ReadByteFromBank
         hlCoord 1, 3, vBGMap
         call LoadBillboardPaletteMap
         pop bc
         ld hl, MonBillboardPalettePointers
         add hl, bc
-        ld a, Bank(MonBillboardPalettePointers)
+        ld a, BANK(MonBillboardPalettePointers)
         call ReadByteFromBank
         inc hl
         ld e, a
-        ld a, Bank(MonBillboardPalettePointers)
+        ld a, BANK(MonBillboardPalettePointers)
         call ReadByteFromBank
         inc hl
         ld d, a
-        ld a, Bank(MonBillboardPalettePointers)
+        ld a, BANK(MonBillboardPalettePointers)
         call ReadByteFromBank
         ld bc, $10b0
         ld hl, rBGPI
@@ -1771,15 +1771,15 @@ LoadSeenPokemonGfx: ; 0x28baf
 .asm_28bbe
         ld hl, MonBillboardPicPointers
         add hl, bc
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         inc hl
         ld c, a
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         inc hl
         ld b, a
-        ld a, Bank(MonBillboardPicPointers)
+        ld a, BANK(MonBillboardPicPointers)
         call ReadByteFromBank
         ld hl, $0180
         add hl, bc
@@ -1812,15 +1812,15 @@ PlayMonPokedexCatchAnimation: ; 0x28bf5
         ldh [rVBK], a
         ld hl, MonAnimatedPicPointers
         add hl, bc
-        ld a, Bank(MonAnimatedPicPointers)
+        ld a, BANK(MonAnimatedPicPointers)
         call ReadByteFromBank
         inc hl
         ld c, a
-        ld a, Bank(MonAnimatedPicPointers)
+        ld a, BANK(MonAnimatedPicPointers)
         call ReadByteFromBank
         inc hl
         ld b, a
-        ld a, Bank(MonAnimatedPicPointers)
+        ld a, BANK(MonAnimatedPicPointers)
         call ReadByteFromBank
         ld h, b
         ld l, c
@@ -1849,16 +1849,16 @@ PlayMonPokedexCatchAnimation: ; 0x28bf5
 .asm_28c4b
         ld hl, CatchSpriteFrameDurations
         add hl, bc
-        ld a, Bank(CatchSpriteFrameDurations)
+        ld a, BANK(CatchSpriteFrameDurations)
         call ReadByteFromBank
         ld [wCurrentCatchMonIdleFrame1Duration], a
         ld [wLoopsUntilNextCatchSpriteAnimationChange], a
         inc hl
-        ld a, Bank(CatchSpriteFrameDurations)
+        ld a, BANK(CatchSpriteFrameDurations)
         call ReadByteFromBank
         ld [wCurrentCatchMonIdleFrame2Duration], a
         inc hl
-        ld a, Bank(CatchSpriteFrameDurations)
+        ld a, BANK(CatchSpriteFrameDurations)
         call ReadByteFromBank
         ld [wCurrentCatchMonHitFrameDuration], a
         ld a, [wCurPokedexIndex]
@@ -1866,7 +1866,7 @@ PlayMonPokedexCatchAnimation: ; 0x28bf5
         ld b, $0
         ld hl, MonAnimatedSpriteTypes
         add hl, bc
-        ld a, Bank(MonAnimatedSpriteTypes)
+        ld a, BANK(MonAnimatedSpriteTypes)
         call ReadByteFromBank
         ld [wCurrentAnimatedMonSpriteType], a
         ld [wCurrentAnimatedMonSpriteFrame], a
@@ -1877,15 +1877,15 @@ PlayMonPokedexCatchAnimation: ; 0x28bf5
         ret z
         ld hl, MonAnimatedPalettePointers
         add hl, bc
-        ld a, Bank(MonAnimatedPalettePointers)
+        ld a, BANK(MonAnimatedPalettePointers)
         call ReadByteFromBank
         inc hl
         ld e, a
-        ld a, Bank(MonAnimatedPalettePointers)
+        ld a, BANK(MonAnimatedPalettePointers)
         call ReadByteFromBank
         inc hl
         ld d, a
-        ld a, Bank(MonAnimatedPalettePointers)
+        ld a, BANK(MonAnimatedPalettePointers)
         call ReadByteFromBank
         push af
         push de
@@ -1910,7 +1910,7 @@ CheckIfMonHasAnimation: ; 0x28cc2
         ld b, $0
         ld hl, MonAnimatedSpriteTypes
         add hl, bc
-        ld a, Bank(MonAnimatedSpriteTypes)
+        ld a, BANK(MonAnimatedSpriteTypes)
         call ReadByteFromBank
         bit 7, a ; if true, this Pokemon does not have an animation
         ret

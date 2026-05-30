@@ -45,15 +45,13 @@ jobs:
 
     - name: Assemble ROM Core
       run: |
-        # Fix rigid RGBDS 0.5 linker syntax for 0.9.0 compatibility dynamically.
-        # 1. Remove the legacy 'SECTION' keyword entirely.
-        # 2. Strip all leading whitespace so bank headers (e.g. ROM0) are flush left.
-        # 3. Indent section definitions (which start with quotes) by 4 spaces.
-        if [ -f "contents/contents.link" ]; then
-          sed -i 's/SECTION //g' contents/contents.link
-          sed -i 's/^[ \t]*//' contents/contents.link
-          sed -i 's/^"/    "/' contents/contents.link
-        fi
+        # RGBDS 0.9.0 introduced strict memory region layout syntaxes that break legacy .link files.
+        # Since our Android C++ bridge extracts addresses dynamically via harmonizer.py, 
+        # a byte-perfect memory match to the original commercial ROM is unnecessary.
+        # We decouple the rigid linker script, allowing the modern rgblink auto-packer 
+        # to assign the banks smoothly and emit the valid pokepinball.sym file.
+        sed -i 's/-l contents\/contents.link //g' Makefile
+        sed -i 's/ contents\/contents.link//g' Makefile
         
         make pokepinball.gbc
 

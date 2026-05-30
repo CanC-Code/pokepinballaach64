@@ -9,21 +9,27 @@ import sys
 #   1. MACRO? / rept? keyword suffix:
 #      The trailing '?' on MACRO and REPT was a pre-0.9.0 shorthand allowing
 #      forward-declared macros. It is now a syntax error. Strip it.
-#      Pattern: word character immediately followed by '?' → remove the '?'
-#      e.g.  "MACRO? foo"  →  "MACRO foo"
-#            "rept? \1"    →  "rept \1"
+#      e.g.  "MACRO? foo"  ->  "MACRO foo"
+#            "rept? \1"    ->  "rept \1"
 #
 #   2. Hash-prefixed string variable interpolation:
-#      STRLEN(#varname) and STRSLICE(#varname, ...) used the '#' prefix to
-#      interpolate a string equate. In 0.9.0 the prefix is dropped; bare
-#      identifiers are used directly.
-#      e.g.  "STRLEN(#chars)"            →  "STRLEN(chars)"
-#            "STRSLICE(#chars, x, x+1)"  →  "STRSLICE(chars, x, x+1)"
+#      STRLEN(#varname) / STRSLICE(#varname, ...) used a '#' prefix to
+#      interpolate a string equate. In 0.9.0 the prefix is dropped.
+#      e.g.  "STRLEN(#chars)"  ->  "STRLEN(chars)"
 #
-#   3. Standalone '?' (original behaviour retained):
-#      Isolated '?' tokens not adjacent to word characters (legacy "unknown"
-#      placeholders in old data tables) are converted to 0.
-#      e.g.  "db ?"  →  "db 0"
+#   3. Standalone '?' placeholder -> 0:
+#      Isolated '?' tokens not adjacent to word characters (legacy unknown-
+#      value placeholders in data tables) are converted to literal 0.
+#      e.g.  "db ?"  ->  "db 0"
+#
+#   4. Single-quoted character literals -> CHARVAL("X"):
+#      RGBDS 0.9.0 removed C-style single-quoted character literals entirely.
+#      All occurrences of 'X' in code context are replaced with CHARVAL("X"),
+#      which correctly resolves via the active charmap (including special
+#      characters like '♂' that have non-ASCII charmap values).
+#      e.g.  "cp ' '"      ->  "cp CHARVAL(\" \")"
+#            "cp '9' + 1"  ->  "cp CHARVAL(\"9\") + 1"
+#            "cp '♂'"      ->  "cp CHARVAL(\"♂\")"
 # ---------------------------------------------------------------------------
 
 def upgrade_line_syntax(line: str) -> tuple[str, bool]:
@@ -40,13 +46,13 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
     code_part = comment_parts[0]
     comment_part = f";{comment_parts[1]}" if len(comment_parts) > 1 else ""
 
-    # Tokenize by string literals so we only transform code outside of quotes.
+    # Tokenize by double-quoted string literals so we only transform code outside quotes.
     string_tokens = re.split(r'(".*?")', code_part)
 
     line_modified = False
     for i in range(len(string_tokens)):
         token = string_tokens[i]
-        # Skip string literal tokens entirely.
+        # Skip double-quoted string literal tokens entirely.
         if token.startswith('"') and token.endswith('"') and len(token) >= 2:
             continue
 
@@ -54,23 +60,32 @@ def upgrade_line_syntax(line: str) -> tuple[str, bool]:
 
         # --- Fix 1: MACRO? / rept? keyword suffix ---
         # Strip '?' that immediately follows a word character (letter/digit/_).
-        # This covers MACRO?, rept?, and any other keyword that used the suffix.
         token = re.sub(r'([a-zA-Z0-9_])\?', r'\1', token)
 
         # --- Fix 2: #varname hash-prefixed string variable interpolation ---
-        # Remove the '#' prefix before bare identifiers inside STRLEN/STRSLICE
-        # argument lists. The pattern targets '#' followed by a word character
-        # to avoid touching unrelated '#' uses (e.g. hex literals on some
-        # dialects) -- but pokepinball uses '$' for hex, so this is safe.
+        # Remove the '#' prefix before bare identifiers.
         token = re.sub(r'#([a-zA-Z_][a-zA-Z0-9_]*)', r'\1', token)
 
-        # --- Fix 3: Standalone '?' placeholder → 0 ---
-        # Only fires for '?' not adjacent to word chars (already handled above),
-        # i.e. isolated data placeholders like "db ?".
+        # --- Fix 3: Standalone '?' placeholder -> 0 ---
         if '?' in token:
             updated = re.sub(r'(^|[^a-zA-Z0-9_])\?(?=[^a-zA-Z0-9_]|$)',
                              r'\1__TEMP_ZERO__', token)
             token = updated.replace('__TEMP_ZERO__', '0')
+
+        # --- Fix 4: Single-quoted character literals -> CHARVAL("X") ---
+        # Matches 'X' where X is one or more characters (handles Unicode like '♂').
+        # The replacement wraps the character in CHARVAL("...") so the charmap
+        # is consulted at assemble time, preserving correct byte values.
+        # Uses a two-pass approach to avoid matching double-quoted content:
+        # we are already outside double-quoted strings at this point.
+        def replace_char_literal(m):
+            inner = m.group(1)
+            # Escape any double-quote that might appear inside (shouldn't occur
+            # in practice for these source files, but handle defensively).
+            inner_escaped = inner.replace('"', '\\"')
+            return f'CHARVAL("{inner_escaped}")'
+
+        token = re.sub(r"'([^']+)'", replace_char_literal, token)
 
         if token != original_token:
             string_tokens[i] = token
@@ -89,18 +104,14 @@ def automate_syntax_upgrade(target_directory):
     modified_files = 0
     print(f"Beginning legacy symbol syntax scan in: {target_directory}")
 
-    # Resolve the rgbds vendor directory as an absolute path so the
-    # os.walk skip works regardless of how target_directory is specified.
     abs_target = os.path.abspath(target_directory)
     rgbds_vendor_dir = os.path.join(abs_target, "rgbds")
 
     for root, dirs, files in os.walk(target_directory):
-        # Skip the vendored rgbds source tree so we never touch its test files.
         abs_root = os.path.abspath(root)
         if abs_root == rgbds_vendor_dir or abs_root.startswith(rgbds_vendor_dir + os.sep):
             dirs.clear()
             continue
-        # Prune at parent level before os.walk descends.
         if "rgbds" in dirs:
             dirs.remove("rgbds")
 

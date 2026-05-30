@@ -54,9 +54,11 @@ tidy:
 clean: tidy
 	find . \( -iname '*.1bpp' -o -iname '*.2bpp' -o -iname '*.pcm' \) -exec rm {} +
 
+# Corrected Interleave Rule using temporary file staging
 %.interleave.2bpp: %.interleave.png
-	$(RGBGFX) -p -o $@ $<
-	tools/gfx --interleave --png $< -o $@
+	$(RGBGFX) -p -o temp_$@ $<
+	tools/gfx --interleave --png $< -o temp_$@
+	mv temp_$@ $@
 
 %.2bpp: %.png
 	$(RGBGFX) -p -o $@ $<

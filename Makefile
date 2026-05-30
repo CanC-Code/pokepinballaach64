@@ -23,7 +23,8 @@ RGBGFX  ?= $(RGBDS)rgbgfx
 RGBASMFLAGS  ?= -Weverything -Wtruncation=1
 RGBLINKFLAGS ?= -Weverything -Wtruncation=1
 RGBFIXFLAGS  ?= -Weverything
-RGBGFXFLAGS  ?= -Weverything
+# Stripped warning flags for modern rgbgfx compatibility
+RGBGFXFLAGS  ?= 
 
 all: $(ROM) compare
 
@@ -41,7 +42,6 @@ $(ROM): $(OBJS) contents/contents.link
 	$(RGBLINK) $(RGBLINKFLAGS) -o $@ $(OBJS)
 	$(RGBFIX) $(RGBFIXFLAGS) $@
 
-# For contributors to make sure a change didn't affect the contents of the rom.
 compare: $(ROM)
 	@$(SHA1) -c rom.sha1
 

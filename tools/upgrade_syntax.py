@@ -1,88 +1,88 @@
 #!/usr/bin/env python3
-import os
-import re
 import sys
+import re
+import os
 
-def upgrade_line_syntax(line: str) -> tuple[str, bool]:
-    """
-    Parses an assembly line, strictly separating active code, string literals, 
-    and comments to safely clear legacy '?' characters without corrupting text assets.
-    """
-    # If the line is empty or completely a comment, skip it
-    if not line.strip() or line.strip().startswith(';'):
-        return line, False
+def parse_sym(sym_path):
+    if not os.path.exists(sym_path):
+        print(f"CRITICAL ERROR: The symbol file '{sym_path}' does not exist.")
+        print("This indicates that 'make' failed to assemble and link the ROM. Please check preceding workflow logs.")
+        sys.exit(1)
 
-    # Isolate trailing comments to preserve text inside notes
-    comment_parts = line.split(';', 1)
-    code_part = comment_parts[0]
-    comment_part = f";{comment_parts[1]}" if len(comment_parts) > 1 else ""
+    symbols = []
+    with open(sym_path, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith(';'): 
+                continue
+            
+            # Matches standard RGBDS symbol format: "Bank:Address Label"
+            match = re.match(r'([0-9A-Fa-f]{2,3}):([0-9A-Fa-f]{4})\s+(.+)', line)
+            if match:
+                bank = int(match.group(1), 16)
+                addr = int(match.group(2), 16)
+                label = match.group(3).strip()
+                symbols.append((bank, addr, label))
+    return symbols
 
-    # Tokenize strings to protect text variables like: db "Where is Pikachu?"
-    # Split by double quotes, keeping track of inside vs outside strings
-    string_tokens = re.split(r'(".*?")', code_part)
+def calculate_sizes_and_write(symbols, out_path):
+    # Sort primarily by bank, then by memory address to ensure continuous offset blocks
+    symbols.sort(key=lambda x: (x[0], x[1]))
     
-    line_modified = False
-    for i in range(len(string_tokens)):
-        token = string_tokens[i]
-        # Only modify if we are outside of a string literal
-        if not (token.startswith('"') and token.endswith('"')):
-            if '?' in token:
-                # Left group captures the boundary; right lookahead matches without consuming.
-                # This explicitly prevents infinite loops when processing adjacent tokens like ?,?
-                pattern = r'(^|[^a-zA-Z0-9_])\?(?=[^a-zA-Z0-9_]|$)'
-                
-                updated_token = re.sub(pattern, r'\1踩0', token)
-                if updated_token != token:
-                    token = updated_token
-                    line_modified = True
-                
-                # Restore the true '0' value from our temporary placeholder
-                if line_modified:
-                    string_tokens[i] = token.replace('踩0', '0')
-
-    # Re-stitch the line components back together safely
-    new_line = "".join(string_tokens) + comment_part
-    return new_line, line_modified
-
-def automate_syntax_upgrade(target_directory):
-    """
-    Recursively scans all .asm files in the target folder to convert legacy 
-    unmapped '?' tokens into compliant '0' values for the RGBDS 0.9.0 engine.
-    """
-    modified_files = 0
-    print(f"Beginning legacy symbol syntax scan in: {target_directory}")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     
-    for root, dirs, files in os.walk(target_directory):
-        for filename in files:
-            if filename.endswith(".asm"):
-                filepath = os.path.join(root, filename)
-                
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        lines = f.readlines()
-                except UnicodeDecodeError:
-                    # Fallback context safety layer for legacy character maps
-                    try:
-                        with open(filepath, 'r', encoding='shift_jis') as f:
-                            lines = f.readlines()
-                    except Exception:
-                        continue
-                
-                file_changed = False
-                for i, line in enumerate(lines):
-                    updated_line, line_changed = upgrade_line_syntax(line)
-                    if line_changed:
-                        lines[i] = updated_line
-                        file_changed = True
-                
-                if file_changed:
-                    with open(filepath, 'w', encoding='utf-8') as f:
-                        f.writelines(lines)
-                    print(f"[+] Cleaned legacy syntax tokens in: {filepath}")
-                    modified_files += 1
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write("#pragma once\n")
+        f.write("#include <stdint.h>\n\n")
+        f.write("struct AssetDefinition {\n")
+        f.write("    const char* name;\n")
+        f.write("    uint32_t physical_offset;\n")
+        f.write("    uint32_t size;\n")
+        f.write("    uint8_t original_bank;\n")
+        f.write("};\n\n")
+        f.write("constexpr AssetDefinition ROM_ASSETS[] = {\n")
+        
+        for i in range(len(symbols)):
+            bank, addr, label = symbols[i]
+            
+            # Filter out temporary/macro localized labels to keep the header file clean
+            if label.startswith('.') or '@' in label: 
+                continue
 
-    print(f"Syntax upgrade complete. Modified {modified_files} source files.")
+            # Calculate physical ROM offset based on Game Boy MBC architecture
+            phys_offset = addr if bank == 0 else (bank * 0x4000) + (addr - 0x4000)
+                
+            # Calculate size based on the distance to the next symbol in the same bank
+            if i + 1 < len(symbols) and symbols[i+1][0] == bank:
+                size = symbols[i+1][1] - addr
+            else:
+                # Fallback: Size extends to the end of the current 16KB bank block
+                size = 0x4000 - (addr % 0x4000)
+                if size == 0: 
+                    size = 0x4000 
 
-if __name__ == "__main__":
-    directory = sys.argv[1] if len(sys.argv) > 1 else "."
-    automate_syntax_upgrade(directory)
+            # Sanitize the label string explicitly to strip any corrupted macro expansion characters
+            # keeping only alphanumeric characters, spaces, dashes, and underscores.
+            clean_label = re.sub(r'[^a-zA-Z0-9_\s\-\[\]().]', '', label)
+            
+            # Double escape quotes and backslashes for structural safety inside the C++ literal map
+            safe_label = clean_label.replace('\\', '\\\\').replace('"', '\\"')
+            
+            if safe_label: # Only emit if there is a valid string remaining after cleanup
+                f.write(f'    {{"{safe_label}", 0x{phys_offset:X}, 0x{size:X}, 0x{bank:02X}}},\n')
+            
+        f.write("};\n")
+        f.write(f"constexpr uint32_t ROM_ASSETS_COUNT = sizeof(ROM_ASSETS) / sizeof(ROM_ASSETS[0]);\n")
+
+if __name__ == '__main__':
+    sym_file = "pokepinball.sym"
+    out_file = "app/src/main/cpp/asset_dictionary.h"
+    
+    if len(sys.argv) > 2:
+        sym_file = sys.argv[1]
+        out_file = sys.argv[2]
+        
+    print(f"Parsing symbols from {sym_file}...")
+    parsed_symbols = parse_sym(sym_file)
+    calculate_sizes_and_write(parsed_symbols, out_file)
+    print(f"Generated clean C++ asset dictionary at {out_file}")

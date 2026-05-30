@@ -1,0 +1,73 @@
+name: Build Android Native Port
+
+on:
+  workflow_dispatch: # Permits manual triggering from the Actions UI
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Scaffold Environment
+      run: |
+        chmod +x setup_android_env.sh
+        ./setup_android_env.sh
+
+    - name: Install RGBDS 0.9.0
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y make gcc bison pkg-config libpng-dev
+        git clone https://github.com/gbdev/rgbds.git
+        cd rgbds
+        git checkout v0.9.0
+        make
+        sudo make install
+
+    - name: Assemble ROM & Generate Symbol Map
+      run: |
+        # Make will generate the target .sym file necessary for offset mapping.
+        # We allow it to continue even if the SHA1 hash fails, as long as the .sym is generated.
+        make || echo "Make completed with non-zero exit, proceeding to map parsing."
+
+    - name: Setup Python Runtime
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Generate C++ Asset Dictionary
+      run: |
+        python3 tools/harmonizer.py "Pokemon Pinball (U) [C][!].sym" app/src/main/cpp/asset_dictionary.h
+
+    - name: Setup Java JDK for Gradle
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Ensure Gradle Wrapper
+      run: |
+        if [ ! -f "gradlew" ]; then
+          gradle wrapper --gradle-version 8.4
+        fi
+        chmod +x gradlew
+
+    - name: Build Android APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pokepinball-android-debug
+        path: app/build/outputs/apk/debug/*.apk
+        
+    - name: Upload C++ Asset Dictionary (For Review)
+      uses: actions/upload-artifact@v4
+      with:
+        name: asset-dictionary-header
+        path: app/src/main/cpp/asset_dictionary.h

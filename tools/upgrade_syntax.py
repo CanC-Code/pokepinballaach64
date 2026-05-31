@@ -33,7 +33,14 @@ import sys
 # 7. Redundant parentheses inside brackets
 #       [label + (macro)] -> [label + macro]
 #
-# 8. Preserves:
+# 8. Legacy Register Indirection (RGBDS 0.9.0 Strict Memory Compliance)
+#       (hl) -> [hl]
+#       (bc) -> [bc]
+#       (de) -> [de]
+#       (c)  -> [c]
+#       (hli)-> [hli]
+#
+# 9. Preserves:
 #       - comments
 #       - quoted strings
 #       - UTF-8 source
@@ -141,6 +148,17 @@ def upgrade_code_token(token):
         r'\[(.*?)\]',
         clean_bracket_parens,
         token
+    )
+    
+    # ------------------------------------------------------------------
+    # Fix 8: Legacy Register Indirection to Brackets
+    # Targets the exact syntax throwing "unexpected (" 
+    # ------------------------------------------------------------------
+    token = re.sub(
+        r'\(\s*(hl|bc|de|c|hl\+|hl-|hli|hld)\s*\)',
+        r'[\1]',
+        token,
+        flags=re.IGNORECASE
     )
 
     return token, token != original

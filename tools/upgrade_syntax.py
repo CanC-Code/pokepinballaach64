@@ -24,27 +24,24 @@ import sys
 #
 # 5. BANK function normalization
 #       Bank(label) -> BANK(label)
-#       bank(label) -> BANK(label)
 #
 # 6. Other RGBDS built-in function normalization
 #       High() -> HIGH()
-#       Low()  -> LOW()
 #
 # 7. Redundant parentheses inside brackets
 #       [label + (macro)] -> [label + macro]
 #
 # 8. Legacy Register Indirection (RGBDS 0.9.0 Strict Memory Compliance)
-#       (hl) -> [hl]
-#       (bc) -> [bc]
-#       (de) -> [de]
-#       (c)  -> [c]
-#       (hli)-> [hli]
+#       ld a, (wVar) -> ld a, [wVar]
+#       ld (bc), a   -> ld [bc], a
+#       add (hl)     -> add [hl]
+#       jp (hl)      -> jp hl
 #
-# 9. Preserves:
-#       - comments
-#       - quoted strings
-#       - UTF-8 source
+# 9. Legacy Condition Parentheses
+#       IF (DEF(DEBUG)) -> IF DEF(DEBUG)
 #
+# Preserves:
+#       - comments, strings, UTF-8 source
 # Excludes:
 #       ./rgbds/
 # ============================================================================
@@ -71,9 +68,6 @@ def replace_char_literal(match):
 
 
 def normalize_rgbds_functions(token):
-    """
-    Converts legacy RGBDS built-in functions to canonical uppercase forms.
-    """
     for old_name, new_name in FUNCTION_FIXES.items():
         pattern = rf'\b{re.escape(old_name)}\s*\('
         token = re.sub(
@@ -85,12 +79,7 @@ def normalize_rgbds_functions(token):
 
 
 def clean_bracket_parens(match):
-    """
-    Strips parentheses that solely wrap a single identifier/macro inside
-    memory dereference brackets (required for RGBDS 0.9.0 strict parsing).
-    """
     inner = match.group(1)
-    # Target and remove parens wrapping a single word/identifier
     inner = re.sub(r'\(\s*([A-Za-z0-9_]+)\s*\)', r'\1', inner)
     return f'[{inner}]'
 
@@ -149,14 +138,82 @@ def upgrade_code_token(token):
         clean_bracket_parens,
         token
     )
-    
+
     # ------------------------------------------------------------------
-    # Fix 8: Legacy Register Indirection to Brackets
-    # Targets the exact syntax throwing "unexpected (" 
+    # Fix 8: Legacy Memory Indirection -> Brackets
+    # Targets all permutations of GBZ80 memory ops to avoid breaking math
+    # ------------------------------------------------------------------
+    
+    # Rule 1: Explicit A register reading from ANY memory address/pointer
+    token = re.sub(
+        r'\b(ld|ldh|add|adc|sub|sbc|and|xor|or|cp)\s+a\s*,\s*\(\s*([^()]+)\s*\)',
+        r'\1 a, [\2]',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 1.5: Implicit A register memory reads (e.g., `cp (hl)`, `add (wVar)`)
+    token = re.sub(
+        r'\b(add|adc|sub|sbc|and|xor|or|cp)\s*\(\s*([^()]+)\s*\)',
+        r'\1 [\2]',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 2: A register writing to ANY memory address/pointer
+    token = re.sub(
+        r'\b(ld|ldh)\s*\(\s*([^()]+)\s*\)\s*,\s*a\b',
+        r'\1 [\2], a',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 3: SP writing to ANY memory address
+    token = re.sub(
+        r'\b(ld)\s*\(\s*([^()]+)\s*\)\s*,\s*sp\b',
+        r'\1 [\2], sp',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 4: Other 8-bit registers reading from specific valid pointers
+    token = re.sub(
+        r'\b(ld)\s+([abcdehl])\s*,\s*\(\s*(hl|bc|de|c|hl\+|hl-|hli|hld)\s*\)',
+        r'\1 \2, [\3]',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 5: Modifying or writing to specific valid pointers (e.g. `ld (hl), 5`)
+    token = re.sub(
+        r'\b(ld|inc|dec)\s*\(\s*(hl|bc|de|c|hl\+|hl-|hli|hld)\s*\)',
+        r'\1 [\2]',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 6: Bitwise ops on (hl)
+    token = re.sub(
+        r'\b(bit|set|res)\s+([0-7])\s*,\s*\(\s*(hl)\s*\)',
+        r'\1 \2, [\3]',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # Rule 7: Strict jp hl formatting
+    token = re.sub(
+        r'\b(jp)\s*\(\s*(hl)\s*\)',
+        r'\1 hl',
+        token,
+        flags=re.IGNORECASE
+    )
+
+    # ------------------------------------------------------------------
+    # Fix 9: IF / ELIF parenthesized conditions
     # ------------------------------------------------------------------
     token = re.sub(
-        r'\(\s*(hl|bc|de|c|hl\+|hl-|hli|hld)\s*\)',
-        r'[\1]',
+        r'\b(IF|ELIF)\s*\(\s*(.*?)\s*\)',
+        r'\1 \2',
         token,
         flags=re.IGNORECASE
     )
@@ -165,28 +222,19 @@ def upgrade_code_token(token):
 
 
 def split_code_and_comment(line):
-    """
-    Splits a line into code and comment sections to prevent altering
-    comments during regex replacement.
-    """
     in_string = False
-
     for i, ch in enumerate(line):
         if ch == '"':
             in_string = not in_string
         elif ch == ';' and not in_string:
             return line[:i], line[i:]
-
     return line, ""
 
 
 def upgrade_line_syntax(line):
     stripped = line.strip()
 
-    if not stripped:
-        return line, False
-
-    if stripped.startswith(";"):
+    if not stripped or stripped.startswith(";"):
         return line, False
 
     code_part, comment_part = split_code_and_comment(line)
@@ -211,25 +259,17 @@ def upgrade_line_syntax(line):
             modified = True
 
     result = "".join(tokens) + comment_part
-
     return result, modified
 
 
 def read_source_file(path):
-    encodings = [
-        "utf-8",
-        "shift_jis",
-        "cp932",
-        "latin1",
-    ]
-
+    encodings = ["utf-8", "shift_jis", "cp932", "latin1"]
     for encoding in encodings:
         try:
             with open(path, "r", encoding=encoding) as f:
                 return f.readlines()
         except UnicodeDecodeError:
             continue
-
     return None
 
 
@@ -247,15 +287,12 @@ def should_skip_directory(abs_root, rgbds_vendor_dir):
 
 def process_asm_file(filepath):
     lines = read_source_file(filepath)
-
     if lines is None:
         return False
 
     modified = False
-
     for i in range(len(lines)):
         updated_line, changed = upgrade_line_syntax(lines[i])
-
         if changed:
             lines[i] = updated_line
             modified = True
@@ -293,12 +330,10 @@ def automate_syntax_upgrade(target_directory):
                 continue
 
             filepath = os.path.join(root, filename)
-
             try:
                 if process_asm_file(filepath):
                     modified_files += 1
                     print(f"[+] Updated: {filepath}")
-
             except Exception as e:
                 print(f"[!] Failed: {filepath}")
                 print(f"    {e}")
